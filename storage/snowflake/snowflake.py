@@ -2,7 +2,7 @@
 import time
 
 # from multiprocessing.sharedctypes import synchronized
-from watchmen.common.snowflake.simpleflake import get_next_id
+from storage.snowflake.simpleflake import get_next_id
 
 
 class InvalidSystemClock(Exception):

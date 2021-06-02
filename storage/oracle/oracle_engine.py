@@ -4,8 +4,8 @@ import cx_Oracle
 from sqlalchemy import create_engine
 from sqlalchemy.pool import NullPool
 
-from watchmen.common.utils.date_utils import DateTimeEncoder
-from watchmen.config.config import settings
+from storage.config.config import settings
+from storage.utils.date_utils import DateTimeEncoder
 
 
 def dumps(o):

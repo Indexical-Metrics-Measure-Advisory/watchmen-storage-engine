@@ -2,7 +2,7 @@ import json
 
 from sqlalchemy import CLOB, text
 
-from watchmen.common.oracle.oracle_engine import engine
+from storage.oracle.oracle_engine import engine
 
 
 def parse_obj(base_model, result, table):

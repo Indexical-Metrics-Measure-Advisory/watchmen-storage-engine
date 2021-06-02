@@ -1,6 +1,6 @@
 from sqlalchemy import MetaData, Table, Column, String, CLOB, Date, DateTime, Integer
 
-from watchmen.common.oracle.oracle_engine import engine
+from storage.oracle.oracle_engine import engine
 
 metadata = MetaData()
 

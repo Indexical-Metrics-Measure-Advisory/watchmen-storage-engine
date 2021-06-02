@@ -1,9 +1,9 @@
 from sqlalchemy import update, MetaData, DECIMAL, Column, Table, String, and_, or_
 from sqlalchemy.dialects.mysql import insert
 from sqlalchemy.future import select
+from storage.utils.storage_utils import convert_to_dict
 
-from watchmen.common.mysql.mysql_engine import engine
-from watchmen.common.utils.data_utils import convert_to_dict
+from storage.mysql.mysql_engine import engine
 
 
 def create_topic_table(instance):

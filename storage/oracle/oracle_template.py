@@ -6,20 +6,22 @@ import time
 from operator import eq
 
 from sqlalchemy import update, Table, and_, or_, delete, Column, DECIMAL, String, CLOB, desc, asc, \
-    text, func, DateTime, BigInteger, Date, Integer
+    text, func, DateTime, BigInteger, Date
 from sqlalchemy.dialects.mysql import insert
 from sqlalchemy.future import select
 from sqlalchemy.orm import Session
 
-from watchmen.common.data_page import DataPage
-from watchmen.common.mysql.model.table_definition import get_primary_key
-from watchmen.common.oracle.oracle_engine import engine, dumps
-from watchmen.common.oracle.oracle_utils import parse_obj, count_table, count_topic_data_table
-from watchmen.common.oracle.table_definition import get_table_by_name, metadata, get_topic_table_by_name
-from watchmen.common.snowflake.snowflake import get_surrogate_key
-from watchmen.common.utils.data_utils import build_data_pages
-from watchmen.common.utils.data_utils import convert_to_dict
-from watchmen.monitor.model.pipeline_monitor import PipelineRunStatus
+from storage.common.data_page import DataPage
+from storage.mysql.model.table_definition import get_primary_key
+from storage.oracle.oracle_engine import engine, dumps
+from storage.oracle.oracle_utils import parse_obj, count_table, count_topic_data_table
+from storage.oracle.table_definition import get_table_by_name, metadata, get_topic_table_by_name
+from storage.snowflake.snowflake import get_surrogate_key
+from storage.utils.storage_utils import build_data_pages
+from storage.utils.storage_utils import convert_to_dict
+
+## TODO remove pipelines run status
+# from storage.monitor.model.pipeline_monitor import PipelineRunStatus
 
 log = logging.getLogger("app." + __name__)
 
@@ -977,39 +979,41 @@ special for raw_pipeline_monitor, need refactor for raw topic schema structure, 
 '''
 
 
-def create_raw_pipeline_monitor():
-    table = Table('topic_raw_pipeline_monitor', metadata)
-    table.append_column(Column(name='id_', type_=String(60), primary_key=True))
-    table.append_column(Column(name='data_', type_=CLOB, nullable=True))
-    table.append_column(Column(name='sys_inserttime', type_=Date, nullable=True))
-    table.append_column(Column(name='sys_updatetime', type_=Date, nullable=True))
-    schema = json.loads(PipelineRunStatus.schema_json(indent=1))
-    for key, value in schema.get("properties").items():
-        column_name = key.lower()
-        column_type = value.get("type", None)
-        if column_type is None:
-            column_format = value.get("format", None)
-            if column_format is None:
-                table.append_column(Column(name=column_name, type_=CLOB, nullable=True))
-            else:
-                if column_format == "date-time":
-                    table.append_column(Column(name=column_name, type_=Date, nullable=True))
-        elif column_type == "boolean":
-            table.append_column(Column(name=column_name, type_=String(5), nullable=True))
-        elif column_type == "string":
-            if column_name == "error":
-                table.append_column(Column(name=column_name, type_=CLOB, nullable=True))
-            elif column_name == "uid":
-                table.append_column(Column(name=column_name.upper(), type_=String(50), quote=True, nullable=True))
-            else:
-                table.append_column(Column(name=column_name, type_=String(50), nullable=True))
-        elif column_type == "integer":
-            table.append_column(Column(name=column_name, type_=Integer, nullable=True))
-        elif column_type == "array":
-            table.append_column(Column(name=column_name, type_=CLOB, nullable=True))
-        else:
-            raise Exception(column_name + "not support type")
-    table.create(engine)
+## TODO refactor
+# def create_raw_pipeline_monitor():
+#     table = Table('topic_raw_pipeline_monitor', metadata)
+#     table.append_column(Column(name='id_', type_=String(60), primary_key=True))
+#     table.append_column(Column(name='data_', type_=CLOB, nullable=True))
+#     table.append_column(Column(name='sys_inserttime', type_=Date, nullable=True))
+#     table.append_column(Column(name='sys_updatetime', type_=Date, nullable=True))
+#
+#     schema = json.loads(PipelineRunStatus.schema_json(indent=1))
+#     for key, value in schema.get("properties").items():
+#         column_name = key.lower()
+#         column_type = value.get("type", None)
+#         if column_type is None:
+#             column_format = value.get("format", None)
+#             if column_format is None:
+#                 table.append_column(Column(name=column_name, type_=CLOB, nullable=True))
+#             else:
+#                 if column_format == "date-time":
+#                     table.append_column(Column(name=column_name, type_=Date, nullable=True))
+#         elif column_type == "boolean":
+#             table.append_column(Column(name=column_name, type_=String(5), nullable=True))
+#         elif column_type == "string":
+#             if column_name == "error":
+#                 table.append_column(Column(name=column_name, type_=CLOB, nullable=True))
+#             elif column_name == "uid":
+#                 table.append_column(Column(name=column_name.upper(), type_=String(50), quote=True, nullable=True))
+#             else:
+#                 table.append_column(Column(name=column_name, type_=String(50), nullable=True))
+#         elif column_type == "integer":
+#             table.append_column(Column(name=column_name, type_=Integer, nullable=True))
+#         elif column_type == "array":
+#             table.append_column(Column(name=column_name, type_=CLOB, nullable=True))
+#         else:
+#             raise Exception(column_name + "not support type")
+#     table.create(engine)
 
 
 def raw_pipeline_monitor_insert_one(one, topic_name):

@@ -7,10 +7,10 @@ from sqlalchemy import update, MetaData, DECIMAL, Column, Table, String, insert,
 from sqlalchemy.future import select
 from sqlalchemy.orm import Session
 
-from watchmen.common.mysql.model.table_definition import get_table_model, get_primary_key, parse_obj, count_table
-from watchmen.common.mysql.mysql_engine import engine
-from watchmen.common.utils.data_utils import build_data_pages
-from watchmen.common.utils.data_utils import convert_to_dict
+from storage.mysql.model.table_definition import get_table_model, get_primary_key, parse_obj, count_table
+from storage.mysql.mysql_engine import engine
+from storage.utils.storage_utils import build_data_pages
+from storage.utils.storage_utils import convert_to_dict
 
 log = logging.getLogger("app." + __name__)
 

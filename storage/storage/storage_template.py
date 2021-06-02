@@ -2,7 +2,6 @@ from enum import Enum
 from typing import List
 
 from pydantic.main import BaseModel
-
 from watchmen.common.storage.engine_adaptor import find_template
 
 template = find_template()

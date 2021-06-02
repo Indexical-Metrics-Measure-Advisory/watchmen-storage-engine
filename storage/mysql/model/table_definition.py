@@ -2,7 +2,7 @@ from sqlalchemy import Column, Integer, String, JSON, DateTime, Boolean
 from sqlalchemy.orm import Session
 from sqlalchemy.orm import declarative_base
 
-from watchmen.common.mysql.mysql_engine import engine
+from storage.mysql.mysql_engine import engine
 
 Base = declarative_base()
 
