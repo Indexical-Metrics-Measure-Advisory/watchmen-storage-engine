@@ -6,7 +6,7 @@ import time
 from operator import eq
 
 from sqlalchemy import update, Table, and_, or_, delete, Column, DECIMAL, String, CLOB, desc, asc, \
-    text, func, DateTime, BigInteger, Date
+    text, func, DateTime, BigInteger, Date, Integer
 from sqlalchemy.dialects.mysql import insert
 from sqlalchemy.future import select
 from sqlalchemy.orm import Session
@@ -19,9 +19,7 @@ from storage.oracle.table_definition import get_table_by_name, metadata, get_top
 from storage.snowflake.snowflake import get_surrogate_key
 from storage.utils.storage_utils import build_data_pages
 from storage.utils.storage_utils import convert_to_dict
-
-## TODO remove pipelines run status
-# from storage.monitor.model.pipeline_monitor import PipelineRunStatus
+from watchmen.monitor.model.pipeline_monitor import PipelineRunStatus
 
 log = logging.getLogger("app." + __name__)
 
@@ -261,21 +259,21 @@ def update_one_first(where, updates, model, name):
     table = get_table_by_name(name)
     stmt = update(table)
     stmt = stmt.where(build_oracle_where_expression(table, where))
+    stmt = stmt.where(text("ROWNUM=1"))
     instance_dict: dict = convert_to_dict(updates)
     values = {}
     for key, value in instance_dict.items():
-        if key != get_primary_key(name):
-            values[key] = value
+        if isinstance(table.c[key.lower()].type, CLOB):
+            if value is not None:
+                values[key.lower()] = dumps(value)
+            else:
+                values[key.lower()] = None
+        else:
+            values[key.lower()] = value
     stmt = stmt.values(values)
-    session = Session(engine, future=True)
-    try:
-        session.execute(stmt)
-        session.commit()
-    except:
-        session.rollback()
-        raise
-    finally:
-        session.close()
+    with engine.connect() as conn:
+        with conn.begin():
+            conn.execute(stmt)
     return model.parse_obj(updates)
 
 
@@ -405,7 +403,10 @@ def find_(where: dict, model, name: str) -> list:
         stmt = text(build_raw_sql_with_json_table(check_result, where, name))
     else:
         stmt = select(table)
-        stmt = stmt.where(build_oracle_where_expression(table, where))
+        # stmt = stmt.where(build_oracle_where_expression(table, where))
+        where_expression = build_oracle_where_expression(table, where)
+        if where_expression is not None:
+            stmt = stmt.where(where_expression)
     with engine.connect() as conn:
         cursor = conn.execute(stmt).cursor
         columns = [col[0] for col in cursor.description]
@@ -979,41 +980,39 @@ special for raw_pipeline_monitor, need refactor for raw topic schema structure, 
 '''
 
 
-## TODO refactor
-# def create_raw_pipeline_monitor():
-#     table = Table('topic_raw_pipeline_monitor', metadata)
-#     table.append_column(Column(name='id_', type_=String(60), primary_key=True))
-#     table.append_column(Column(name='data_', type_=CLOB, nullable=True))
-#     table.append_column(Column(name='sys_inserttime', type_=Date, nullable=True))
-#     table.append_column(Column(name='sys_updatetime', type_=Date, nullable=True))
-#
-#     schema = json.loads(PipelineRunStatus.schema_json(indent=1))
-#     for key, value in schema.get("properties").items():
-#         column_name = key.lower()
-#         column_type = value.get("type", None)
-#         if column_type is None:
-#             column_format = value.get("format", None)
-#             if column_format is None:
-#                 table.append_column(Column(name=column_name, type_=CLOB, nullable=True))
-#             else:
-#                 if column_format == "date-time":
-#                     table.append_column(Column(name=column_name, type_=Date, nullable=True))
-#         elif column_type == "boolean":
-#             table.append_column(Column(name=column_name, type_=String(5), nullable=True))
-#         elif column_type == "string":
-#             if column_name == "error":
-#                 table.append_column(Column(name=column_name, type_=CLOB, nullable=True))
-#             elif column_name == "uid":
-#                 table.append_column(Column(name=column_name.upper(), type_=String(50), quote=True, nullable=True))
-#             else:
-#                 table.append_column(Column(name=column_name, type_=String(50), nullable=True))
-#         elif column_type == "integer":
-#             table.append_column(Column(name=column_name, type_=Integer, nullable=True))
-#         elif column_type == "array":
-#             table.append_column(Column(name=column_name, type_=CLOB, nullable=True))
-#         else:
-#             raise Exception(column_name + "not support type")
-#     table.create(engine)
+def create_raw_pipeline_monitor():
+    table = Table('topic_raw_pipeline_monitor', metadata)
+    table.append_column(Column(name='id_', type_=String(60), primary_key=True))
+    table.append_column(Column(name='data_', type_=CLOB, nullable=True))
+    table.append_column(Column(name='sys_inserttime', type_=Date, nullable=True))
+    table.append_column(Column(name='sys_updatetime', type_=Date, nullable=True))
+    schema = json.loads(PipelineRunStatus.schema_json(indent=1))
+    for key, value in schema.get("properties").items():
+        column_name = key.lower()
+        column_type = value.get("type", None)
+        if column_type is None:
+            column_format = value.get("format", None)
+            if column_format is None:
+                table.append_column(Column(name=column_name, type_=CLOB, nullable=True))
+            else:
+                if column_format == "date-time":
+                    table.append_column(Column(name=column_name, type_=Date, nullable=True))
+        elif column_type == "boolean":
+            table.append_column(Column(name=column_name, type_=String(5), nullable=True))
+        elif column_type == "string":
+            if column_name == "error":
+                table.append_column(Column(name=column_name, type_=CLOB, nullable=True))
+            elif column_name == "uid":
+                table.append_column(Column(name=column_name.upper(), type_=String(50), quote=True, nullable=True))
+            else:
+                table.append_column(Column(name=column_name, type_=String(50), nullable=True))
+        elif column_type == "integer":
+            table.append_column(Column(name=column_name, type_=Integer, nullable=True))
+        elif column_type == "array":
+            table.append_column(Column(name=column_name, type_=CLOB, nullable=True))
+        else:
+            raise Exception(column_name + "not support type")
+    table.create(engine)
 
 
 def raw_pipeline_monitor_insert_one(one, topic_name):
@@ -1064,3 +1063,7 @@ def raw_pipeline_monitor_page_(where, sort, pageable, model, name) -> DataPage:
         else:
             result.append(json.loads(row['DATA_']))
     return build_data_pages(pageable, result, count)
+
+
+def clear_metadata():
+    metadata.clear()

@@ -2,6 +2,7 @@ from enum import Enum
 from typing import List
 
 from pydantic.main import BaseModel
+
 from storage.storage.engine_adaptor import find_template
 
 template = find_template()
@@ -198,3 +199,7 @@ special for raw_pipeline_monitor, need refactor for raw topic schema structure, 
 
 def create_raw_pipeline_monitor():
     template.create_raw_pipeline_monitor()
+
+
+def clear_metadata():
+    template.clear_metadata()

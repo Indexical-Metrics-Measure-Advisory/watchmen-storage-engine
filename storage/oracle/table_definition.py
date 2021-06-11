@@ -148,6 +148,7 @@ console_space_subjects_table = Table("console_space_subjects", metadata,
                                      Column("createdat", String(50), nullable=True),
                                      Column('last_modified', DateTime, nullable=True),
                                      Column('lastmodifytime', DateTime, nullable=True),
+                                     Column('lastmodified', DateTime, nullable=True),
                                      Column('createtime', String(50), nullable=True)
                                      )
 

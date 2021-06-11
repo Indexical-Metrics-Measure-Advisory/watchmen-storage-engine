@@ -4,8 +4,8 @@ import cx_Oracle
 from sqlalchemy import create_engine
 from sqlalchemy.pool import NullPool
 
-from storage.config.config import settings
 from storage.utils.date_utils import DateTimeEncoder
+from storage.config.config import settings
 
 
 def dumps(o):
@@ -21,8 +21,13 @@ connection_url = "oracle+cx_oracle://%s:%s@%s:%s/?" \
                                                                      settings.ORACLE_PORT,
                                                                      settings.ORACLE_SERVICE)
 
-dsn = cx_Oracle.makedsn(settings.ORACLE_HOST,
-                        settings.ORACLE_PORT, sid=settings.ORACLE_SERVICE)
+if settings.ORACLE_SID != "":
+    dsn = cx_Oracle.makedsn(settings.ORACLE_HOST,
+                            settings.ORACLE_PORT, sid=settings.ORACLE_SID)
+
+if settings.ORACLE_SID == "" and settings.ORACLE_SERVICE != "":
+    dsn = cx_Oracle.makedsn(settings.ORACLE_HOST,
+                            settings.ORACLE_PORT, service_name=settings.ORACLE_SERVICE)
 
 pool = cx_Oracle.SessionPool(
     settings.ORACLE_USER, settings.ORACLE_PASSWORD, dsn=dsn,

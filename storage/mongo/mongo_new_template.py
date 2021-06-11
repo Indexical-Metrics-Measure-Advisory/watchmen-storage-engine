@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime, date
+from datetime import date
 
 import arrow
 import pymongo
@@ -311,8 +311,6 @@ def topic_data_insert_one(one, topic_name):
 
 def encode_dict(one):
     for k, v in one.items():
-        # if isinstance(v, datetime):
-        #     one[k] = v.isoformat()
         if isinstance(v, date):
             one[k] = arrow.get(v).datetime
 
@@ -383,4 +381,8 @@ special for raw_pipeline_monitor, need refactor for raw topic schema structure, 
 
 
 def create_raw_pipeline_monitor():
+    pass
+
+
+def clear_metadata():
     pass
