@@ -9,7 +9,7 @@ from pymongo import ReturnDocument
 from storage.common.data_page import DataPage
 from storage.mongo.index import build_code_options
 from storage.mysql.model.table_definition import get_primary_key
-from storage.storage.engine.storage_engine import get_client
+from storage.mongo.engine.storage_engine import get_client
 from storage.utils.storage_utils import build_data_pages, build_collection_name
 
 client = get_client()
@@ -373,6 +373,15 @@ def topic_find_one_and_update(where: dict, updates: dict, name: str):
 
 def topic_data_page_(where, sort, pageable, model, name) -> DataPage:
     return page_(where, sort, pageable, model, name)
+
+
+def update_one_with_key(one, model, name,primary_key) -> any:
+    collection = client.get_collection(name)
+    one_dict = __convert_to_dict(one)
+    query_dict = {primary_key: one_dict.get(primary_key)}
+    collection.update_one(query_dict, {"$set": one_dict})
+    return model.parse_obj(one)
+
 
 
 '''

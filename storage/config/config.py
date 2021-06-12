@@ -13,6 +13,7 @@ class Settings(BaseSettings):
     ALGORITHM = "HS256"
     STORAGE_ENGINE = "mongo"
     PROJECT_NAME: str
+    MONGO_SCHEMA = "watchmen"
     MONGO_HOST: str = None
     MONGO_PORT: int = None
     MONGO_USERNAME: str = None

@@ -36,6 +36,8 @@ def insert_one(one, model, name):
     return model.parse_obj(one)
 
 
+
+
 def insert_all(data, model, name):
     metadata = MetaData()
     table = Table(name, metadata, autoload=True, autoload_with=engine)
