@@ -31,4 +31,5 @@ jobs:
     - name: Build package
       run: poetry build
     - name: Publish package
-      run: poetry publish --username=${{secrets.PIP_USERNAME}} --password=${{secrets.PIP_PASSWORD}}
+      run: |
+        poetry publish -u ${{secrets.PIP_USERNAME}} -p ${{secrets.PIP_PASSWORD}}
