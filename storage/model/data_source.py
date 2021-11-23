@@ -1,7 +1,7 @@
 from typing import List
 
 from pydantic import BaseModel
-from watchmen.common.watchmen_model import WatchmenModel
+from storage.common.watchmen_model import WatchmenModel
 
 
 class DataSourceParam(BaseModel):
