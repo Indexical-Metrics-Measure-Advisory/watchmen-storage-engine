@@ -10,8 +10,8 @@ from sqlalchemy.orm import Session
 
 from storage.common.cache.cache_manage import cacheman, TOPIC_DICT_BY_NAME
 from storage.common.data_page import DataPage
-from storage.common.utils.data_utils import build_data_pages
-from storage.common.utils.data_utils import convert_to_dict
+from storage.common.utils.storage_utils import build_data_pages
+from storage.common.utils.storage_utils import convert_to_dict
 from storage.mysql.mysql_utils import parse_obj
 from storage.storage.storage_interface import StorageInterface
 

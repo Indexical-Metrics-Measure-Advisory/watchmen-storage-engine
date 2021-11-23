@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "watchmen-storage-engine"
-version = "0.1.9"
+version = "0.1.12"
 description = ""
 authors = ["luke0623 <luke0623@outlook.com>"]
 

@@ -5,7 +5,7 @@ from bson import regex
 
 from storage.common.cache.cache_manage import cacheman, TOPIC_DICT_BY_NAME
 from storage.common.data_page import DataPage
-from storage.common.utils.data_utils import build_data_pages
+from storage.common.utils.storage_utils import build_data_pages
 from storage.mongo.index import build_code_options
 from storage.storage.storage_interface import StorageInterface
 
