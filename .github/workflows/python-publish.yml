@@ -32,4 +32,4 @@ jobs:
       run: poetry build
     - name: Publish package
       run: |
-        poetry publish -u ${{secrets.PIP_USERNAME}} -p ${{secrets.PIP_PASSWORD}}
+        poetry publish -u '${{secrets.PIP_USERNAME}}' -p '${{secrets.PIP_PASSWORD}}'
