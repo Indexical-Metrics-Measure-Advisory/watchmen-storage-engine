@@ -16,6 +16,8 @@ pymongo = "^3.11.4"
 cx-Oracle = "^8.2.1"
 arrow = "^1.1.0"
 cacheout = "^0.13.1"
+mysqlclient = "^2.1.0"
+SQLAlchemy = "^1.4.27"
 
 [tool.poetry.dev-dependencies]
 
