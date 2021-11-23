@@ -1,207 +1,427 @@
+import json
 import logging
+import operator
 from operator import eq
 
-import pymongo
-from bson import regex
-from sqlalchemy import update, MetaData, DECIMAL, Column, Table, String, insert, and_, or_
+from sqlalchemy import insert, update, and_, or_, delete, desc, asc, \
+    text, JSON, inspect
 from sqlalchemy.future import select
 from sqlalchemy.orm import Session
 
-from storage.mysql.model.table_definition import get_table_model, get_primary_key, parse_obj, count_table
-from storage.mysql.mysql_engine import engine
-from storage.utils.storage_utils import build_data_pages
-from storage.utils.storage_utils import convert_to_dict
+from storage.common.cache.cache_manage import cacheman, TOPIC_DICT_BY_NAME
+from storage.common.data_page import DataPage
+from storage.common.utils.data_utils import build_data_pages
+from storage.common.utils.data_utils import convert_to_dict
+from storage.mysql.mysql_utils import parse_obj
+from storage.storage.storage_interface import StorageInterface
 
 log = logging.getLogger("app." + __name__)
 
 log.info("mysql template initialized")
 
 
-def create(collection_name, instance, base_model):
-    table_instance = get_table_model(collection_name)()
-    instance_dict: dict = convert_to_dict(instance)
-    for key, value in instance_dict.items():
-        setattr(table_instance, key, value)
-    session = Session(engine, future=True)
-    try:
-        session.add(table_instance)
-        session.commit()
-    except:
-        session.rollback()
-        raise
-    finally:
-        session.close()
-    return base_model.parse_obj(instance)
+# @singleton
+class MysqlStorage(StorageInterface):
 
+    def __init__(self, client, table_provider):
+        self.engine = client
+        self.insp = inspect(client)
+        self.table = table_provider
 
-def update_one(collection_name, query_dict, instance, base_model):
-    table = get_table_model(collection_name)
-    session = Session(engine, future=True)
-    stmt = update(table)
-    for key, value in query_dict.items():
-        stmt = stmt.where(eq(getattr(table, key), value))
-    instance_dict: dict = convert_to_dict(instance)
-    values = {}
-    for key, value in instance_dict.items():
-        if key != get_primary_key(collection_name):
-            values[key] = value
-    stmt = stmt.values(values)
-    try:
-        session.execute(stmt)
-        session.commit()
-    except:
-        session.rollback()
-        raise
-    finally:
-        session.close()
+    def build_mysql_where_expression(self, table, where):
+        for key, value in where.items():
+            if key == "and" or key == "or":
+                if isinstance(value, list):
+                    result_filters = []
+                    for express in value:
+                        result = self.build_mysql_where_expression(table, express)
+                        result_filters.append(result)
+                if key == "and":
+                    return and_(*result_filters)
+                if key == "or":
+                    return or_(*result_filters)
+            else:
+                if isinstance(value, dict):
+                    for k, v in value.items():
+                        if k == "=":
+                            return table.c[key.lower()] == v
+                        if k == "!=":
+                            return operator.ne(table.c[key.lower()], v)
+                        if k == "like":
+                            if v != "" or v != '' or v is not None:
+                                return table.c[key.lower()].like("%" + v + "%")
+                        if k == "in":
+                            if isinstance(table.c[key.lower()].type, JSON):
+                                stmt = ""
+                                if isinstance(v, list):
+                                    # value_ = ",".join(v)
+                                    for item in v:
+                                        if stmt == "":
+                                            stmt = "JSON_CONTAINS(" + key.lower() + ", '[\"" + item + "\"]', '$') = 1"
+                                        else:
+                                            stmt = stmt + " or JSON_CONTAINS(" + key.lower() + ", '[\"" + item + "\"]', '$') = 1 "
+                                else:
+                                    value_ = v
+                                    stmt = "JSON_CONTAINS(" + key.lower() + ", '[\"" + value_ + "\"]', '$') = 1"
+                                return text(stmt)
+                            else:
+                                if isinstance(v, list):
+                                    return table.c[key.lower()].in_(v)
+                                elif isinstance(v, str):
+                                    v_list = v.split(",")
+                                    return table.c[key.lower()].in_(v_list)
+                                else:
+                                    raise TypeError(
+                                        "operator in, the value \"{0}\" is not list or str".format(v))
+                        if k == "not-in":
+                            if isinstance(table.c[key.lower()].type, JSON):
+                                if isinstance(v, list):
+                                    value_ = ",".join(v)
+                                else:
+                                    value_ = v
+                                stmt = "JSON_CONTAINS(" + key.lower() + ", '[\"" + value_ + "\"]', '$') = 0"
+                                return text(stmt)
+                            else:
+                                if isinstance(v, list):
+                                    return table.c[key.lower()].notin_(v)
+                                elif isinstance(v, str):
+                                    v_list = ",".join(v)
+                                    return table.c[key.lower()].notin_(v_list)
+                                else:
+                                    raise TypeError(
+                                        "operator not_in, the value \"{0}\" is not list or str".format(v))
+                        if k == ">":
+                            return table.c[key.lower()] > v
+                        if k == ">=":
+                            return table.c[key.lower()] >= v
+                        if k == "<":
+                            return table.c[key.lower()] < v
+                        if k == "<=":
+                            return table.c[key.lower()] <= v
+                        if k == "between":
+                            if (isinstance(v, tuple)) and len(v) == 2:
+                                return table.c[key.lower()].between(v[0],
+                                                                    v[1])
+                else:
+                    return table.c[key.lower()] == value
 
-    return base_model.parse_obj(instance)
-
-
-def find_one(collection_name, query_dict, base_model):
-    table = get_table_model(collection_name)
-    stmt = select(table)
-    for key in query_dict.keys():
-        value = query_dict[key]
-        stmt = stmt.where(eq(getattr(table, key), value))
-    session = Session(engine, future=True)
-    res = session.execute(stmt).first()
-    return parse_obj(base_model, res[0])
-
-
-def query_with_pagination(collection_name, pagination, base_model, query_dict=None, sort_dict=None):
-    count = count_table(collection_name)
-    table = get_table_model(collection_name)
-    result = []
-    session = Session(engine, future=True)
-    stmt = select(table)
-    for key in query_dict.keys():
-        if isinstance(query_dict.get(key), regex.Regex):
-            value = query_dict.get(key)
-            pattern = getattr(value, 'pattern')
-            if len(pattern) > 0:
-                stmt = stmt.where(eq(getattr(table, key), pattern))
+    @staticmethod
+    def build_mysql_order(table, order_: list):
+        result = []
+        if order_ is None:
+            return result
         else:
-            stmt = stmt.where(eq(getattr(table, key), pattern))
+            for item in order_:
+                if isinstance(item, tuple):
+                    if item[1] == "desc":
+                        new_ = desc(table.c[item[0].lower()])
+                        result.append(new_)
+                    if item[1] == "asc":
+                        new_ = asc(table.c[item[0].lower()])
+                        result.append(new_)
+            return result
 
-    if isinstance(sort_dict[0], str):
-        order_field = sort_dict[0]
-        if sort_dict[1] == pymongo.DESCENDING:
-            order_seq = "desc"
+    def insert_one(self, one, model, name):
+        table = self.table.get_table_by_name(name)
+        one_dict: dict = convert_to_dict(one)
+        values = {}
+        for key, value in one_dict.items():
+            if isinstance(table.c[key.lower()].type, JSON):
+                if value is not None:
+                    values[key.lower()] = value
+                else:
+                    values[key.lower()] = None
+            else:
+                values[key.lower()] = value
+        stmt = insert(table).values(values)
+        with self.engine.connect() as conn:
+            with conn.begin():
+                conn.execute(stmt)
+        return model.parse_obj(one)
+
+    def insert_all(self, data, model, name):
+        table = self.table.get_table_by_name(name)
+        stmt = insert(table)
+        value_list = []
+        for item in data:
+            instance_dict: dict = convert_to_dict(item)
+            values = {}
+            for key in table.c.keys():
+                values[key] = instance_dict.get(key)
+            value_list.append(values)
+        with self.engine.connect() as conn:
+            with conn.begin():
+                conn.execute(stmt, value_list)
+
+    def update_one(self, one, model, name) -> any:
+        table = self.table.get_table_by_name(name)
+        stmt = update(table)
+        one_dict: dict = convert_to_dict(one)
+        primary_key = self.table.get_primary_key(name)
+        stmt = stmt.where(
+            eq(table.c[primary_key.lower()], one_dict.get(primary_key)))
+        values = {}
+        for key, value in one_dict.items():
+            if isinstance(table.c[key.lower()].type, JSON):
+                if value is not None:
+                    values[key.lower()] = value
+                else:
+                    values[key.lower()] = None
+            else:
+                values[key.lower()] = value
+        stmt = stmt.values(values)
+        with self.engine.connect() as conn:
+            with conn.begin():
+                result = conn.execute(stmt)
+        return model.parse_obj(one)
+
+    def update_one_first(self, where, updates, model, name):
+        table = self.table.get_table_by_name(name)
+        stmt = update(table)
+        stmt = stmt.where(self.build_mysql_where_expression(table, where))
+        instance_dict: dict = convert_to_dict(updates)
+        values = {}
+        for key, value in instance_dict.items():
+            if isinstance(table.c[key.lower()].type, JSON):
+                if value is not None:
+                    values[key.lower()] = value
+                else:
+                    values[key.lower()] = None
+            else:
+                values[key.lower()] = value
+        stmt = stmt.values(values)
+        with self.engine.connect() as conn:
+            with conn.begin():
+                conn.execute(stmt)
+        return model.parse_obj(updates)
+
+    def update_(self, where, updates, model, name):
+        table = self.table.get_table_by_name(name)
+        stmt = update(table)
+        stmt = stmt.where(self.build_mysql_where_expression(table, where))
+        instance_dict: dict = convert_to_dict(updates)
+        values = {}
+        for key, value in instance_dict.items():
+            if key != self.table.get_primary_key(name):
+                values[key] = value
+        stmt = stmt.values(values)
+        session = Session(self.engine, future=True)
+        try:
+            session.execute(stmt)
+            session.commit()
+        except:
+            session.rollback()
+            raise
+        finally:
+            session.close()
+
+    def pull_update(self, where, updates, model, name):
+        results = self.find_(where, model, name)
+        updates_dict = convert_to_dict(updates)
+        for key, value in updates_dict.items():
+            for res in results:
+                if isinstance(getattr(res, key), list):
+                    setattr(res, key, getattr(res, key).remove(value["in"][0]))
+                    self.update_one(res, model, name)
+
+    def delete_by_id(self, id_, name):
+        table = self.table.get_table_by_name(name)
+        key = self.table.get_primary_key(name)
+        stmt = delete(table).where(eq(table.c[key.lower()], id_))
+        with self.engine.connect() as conn:
+            with conn.begin():
+                conn.execute(stmt)
+
+    def delete_one(self, where: dict, name: str):
+        table = self.table.get_table_by_name(name)
+        stmt = delete(table).where(self.build_mysql_where_expression(table, where))
+        with self.engine.connect() as conn:
+            with conn.begin():
+                conn.execute(stmt)
+
+    def delete_(self, where, model, name):
+        table = self.table.get_table_by_name(name)
+        if where is None:
+            stmt = delete(table)
         else:
-            order_seq = "asc"
-        if order_seq == "desc":
-            stmt = stmt.order_by(getattr(table, order_field).desc())
-    else:
-        for tup in sort_dict:
-            order_field = tup[0]
-            if tup[1] == pymongo.DESCENDING:
-                order_seq = "desc"
-            if tup[1] == pymongo.ASCENDING:
-                order_seq = "asc"
-            if order_seq == "desc":
-                stmt = stmt.order_by(order_field.desc())
+            stmt = delete(table).where(self.build_mysql_where_expression(table, where))
+        with self.engine.connect() as conn:
+            with conn.begin():
+                conn.execute(stmt)
 
-    offset = pagination.pageSize * (pagination.pageNumber - 1)
-    stmt = stmt.offset(offset).limit(pagination.pageSize)
-    res = session.execute(stmt)
-    for row in res:
-        for item in row:
-            result.append(parse_obj(base_model, item))
-    return build_data_pages(pagination, result, count)
+    def find_by_id(self, id_, model, name):
+        table = self.table.get_table_by_name(name)
+        primary_key = self.table.get_primary_key(name)
+        stmt = select(table).where(eq(table.c[primary_key.lower()], id_))
+        with self.engine.connect() as conn:
+            cursor = conn.execute(stmt).cursor
+            columns = [col[0] for col in cursor.description]
+            row = cursor.fetchone()
+            if row is None:
+                return None
+            else:
+                result = {}
+                for index, name in enumerate(columns):
+                    result[name] = row[index]
+                return parse_obj(model, result, table)
 
+    def find_one(self, where, model, name):
+        table = self.table.get_table_by_name(name)
+        stmt = select(table)
+        stmt = stmt.where(self.build_mysql_where_expression(table, where))
+        with self.engine.connect() as conn:
+            cursor = conn.execute(stmt).cursor
+            columns = [col[0] for col in cursor.description]
+            row = cursor.fetchone()
+            result = {}
+            if row is None:
+                return None
+            else:
+                for index, name in enumerate(columns):
+                    result[name] = row[index]
+                return parse_obj(model, result, table)
 
-def create_topic_table(instance):
-    metadata = MetaData()
-    instance_dict: dict = convert_to_dict(instance)
-    topic_name = instance_dict.get('name')
-    factors = instance_dict.get('factors')
-    table = Table('topic_' + topic_name, metadata)
-    key = Column(name="id", type_=DECIMAL(50), primary_key=True)
-    table.append_column(key)
-    for factor in factors:
-        col = Column(name=factor.get('name'), type_=String(20), nullable=True)
-        table.append_column(col)
-    table.create(engine)
+    def find_(self, where: dict, model, name: str) -> list:
+        table = self.table.get_table_by_name(name)
+        stmt = select(table)
+        where_expression = self.build_mysql_where_expression(table, where)
+        if where_expression is not None:
+            stmt = stmt.where(where_expression)
+        results = []
+        with self.engine.connect() as conn:
+            cursor = conn.execute(stmt).cursor
+            columns = [col[0] for col in cursor.description]
+            records = cursor.fetchall()
+            if records is None:
+                return None
+            else:
+                for record in records:
+                    result = {}
+                    for index, name in enumerate(columns):
+                        result[name] = record[index]
+                    results.append(result)
+                return [parse_obj(model, row, table) for row in results]
 
+    def list_all(self, model, name):
+        table = self.table.get_table_by_name(name)
+        stmt = select(table)
+        with self.engine.connect() as conn:
+            cursor = conn.execute(stmt).cursor
+            columns = [col[0] for col in cursor.description]
+            res = cursor.fetchall()
+        results = []
+        for row in res:
+            result = {}
+            for index, name in enumerate(columns):
+                result[name] = row[index]
+            results.append(parse_obj(model, result, table))
+        return results
 
-def alert_topic_table(session, instance):
-    metadata = MetaData()
-    instance_dict: dict = convert_to_dict(instance)
-    topic_name = instance_dict.get('name')
-    table_name = 'topic_' + topic_name
-    table = Table('topic_' + topic_name, metadata, autoload=True, autoload_with=engine)
-    factors = instance_dict.get('factors')
-    existed_cols = []
-    for col in table.columns:
-        existed_cols.append(col.name)
-    for factor in factors:
-        if factor.get('name') in existed_cols:
-            continue
-        else:
-            column = Column(factor.get('name'), String(20))
-            add_column(session, table_name, column)
+    def list_(self, where, model, name) -> list:
+        table = self.table.get_table_by_name(name)
+        stmt = select(table).where(self.build_mysql_where_expression(table, where))
+        with self.engine.connect() as conn:
+            cursor = conn.execute(stmt).cursor
+            columns = [col[0] for col in cursor.description]
+            res = cursor.fetchall()
+        results = []
+        for row in res:
+            result = {}
+            for index, name in enumerate(columns):
+                result[name] = row[index]
+            results.append(parse_obj(model, result, table))
+        return results
 
+    def page_all(self, sort, pageable, model, name) -> DataPage:
+        count = self.count_table(name)
+        table = self.table.get_table_by_name(name)
+        stmt = select(table)
+        orders = self.build_mysql_order(table, sort)
+        for order in orders:
+            stmt = stmt.order_by(order)
+        offset = pageable.pageSize * (pageable.pageNumber - 1)
+        stmt = stmt.offset(offset).limit(pageable.pageSize)
+        results = []
+        with self.engine.connect() as conn:
+            cursor = conn.execute(stmt).cursor
+            columns = [col[0] for col in cursor.description]
+            res = cursor.fetchall()
+        for row in res:
+            result = {}
+            for index, name in enumerate(columns):
+                result[name] = row[index]
+            results.append(parse_obj(model, result, table))
+        return build_data_pages(pageable, results, count)
 
-def add_column(session, table_name, column):
-    column_name = column.compile(dialect=engine.dialect)
-    column_type = column.type.compile(engine.dialect)
-    session.execute('ALTER TABLE %s ADD COLUMN %s %s' % (table_name, column_name, column_type))
+    def page_(self, where, sort, pageable, model, name) -> DataPage:
+        count = self.count_table(name)
+        table = self.table.get_table_by_name(name)
+        stmt = select(table).where(self.build_mysql_where_expression(table, where))
+        orders = self.build_mysql_order(table, sort)
+        for order in orders:
+            stmt = stmt.order_by(order)
+        offset = pageable.pageSize * (pageable.pageNumber - 1)
+        stmt = stmt.offset(offset).limit(pageable.pageSize)
+        results = []
+        with self.engine.connect() as conn:
+            cursor = conn.execute(stmt).cursor
+            columns = [col[0] for col in cursor.description]
+            res = cursor.fetchall()
+        for row in res:
+            result = {}
+            for index, name in enumerate(columns):
+                result[name] = row[index]
+            results.append(parse_obj(model, result, table))
+        return build_data_pages(pageable, results, count)
 
+    def clear_metadata(self):
+        self.table.metadata.clear()
 
-def insert_topic_instances(topic_name, instances):
-    metadata = MetaData()
-    table = Table('topic_' + topic_name, metadata, autoload=True, autoload_with=engine)
-    values = []
-    for instance in instances:
-        instance_dict: dict = convert_to_dict(instance)
-        value = {}
-        for key in table.c.keys():
-            value[key] = instance_dict.get(key)
-        values.append(value)
-    stmt = insert(table)
-    with engine.connect() as conn:
-        result = conn.execute(stmt, values)
-        conn.commit()
+    def check_topic_type(self, topic_name):
+        topic = self._get_topic(topic_name)
+        return topic['type']
 
+    def get_topic_factors(self, topic_name):
+        topic = self._get_topic(topic_name)
+        factors = topic['factors']
+        return factors
 
-def insert_topic_instance(topic_name, instance):
-    return insert_topic_instances(topic_name, [instance])
+    def count_table(self, table_name):
+        primary_key = self.table.get_primary_key(table_name)
+        stmt = 'SELECT count(%s) AS count FROM %s' % (primary_key, table_name)
+        with self.engine.connect() as conn:
+            cursor = conn.execute(text(stmt)).cursor
+            result = cursor.fetchone()
+        return result[0]
 
+    def count_topic_data_table(self, table_name):
+        stmt = 'SELECT count(%s) AS count FROM %s' % ('id_', table_name)
+        with self.engine.connect() as conn:
+            cursor = conn.execute(text(stmt)).cursor
+            result = cursor.fetchone()
+        return result[0]
 
-def update_topic_instance(topic_name, query_dict, instance):
-    metadata = MetaData()
-    table = Table('topic_' + topic_name, metadata, autoload=True, autoload_with=engine)
-    stmt = (update(table).
-            where(*build_where_expression(table, query_dict)))
-    instance_dict: dict = convert_to_dict(instance)
-    values = {}
-    for key, value in instance_dict.items():
-        if key != 'id':
-            values[key] = value
-    stmt = stmt.values(values)
-    with engine.begin() as conn:
-        conn.execute(stmt)
-
-
-def query_topic_instance(topic_name, conditions):
-    metadata = MetaData()
-    table = Table('topic_' + topic_name, metadata, autoload=True, autoload_with=engine)
-    stmt = select(table).where(*build_where_expression(table, conditions))
-    with engine.connect() as conn:
-        result = conn.execute(stmt)
-        conn.commit()
-        return result
-
-
-def build_where_expression(table, conditions):
-    filters: list = []
-    for key, value in conditions.item():
-        if key == "$and":
-            f = and_(*build_where_expression(value))
-        elif key == "$or":
-            f = or_(*build_where_expression(value))
-        else:
-            f = (table.c.key == value)
-        filters.append(f)
-    return filters
+    def _get_topic(self, topic_name) -> any:
+        if cacheman[TOPIC_DICT_BY_NAME].get(topic_name) is not None:
+            return cacheman[TOPIC_DICT_BY_NAME].get(topic_name)
+        table = self.table.get_table_by_name("topics")
+        select_stmt = select(table).where(
+            self.build_mysql_where_expression(table, {"name": topic_name}))
+        with self.engine.connect() as conn:
+            cursor = conn.execute(select_stmt).cursor
+            columns = [col[0] for col in cursor.description]
+            row = cursor.fetchone()
+            if row is None:
+                raise
+            else:
+                result = {}
+                for index, name in enumerate(columns):
+                    if isinstance(table.c[name.lower()].type, JSON):
+                        if row[index] is not None:
+                            result[name] = json.loads(row[index])
+                        else:
+                            result[name] = None
+                    else:
+                        result[name] = row[index]
+                cacheman[TOPIC_DICT_BY_NAME].set(topic_name, result)
+                return result

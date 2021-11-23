@@ -1,205 +1,82 @@
-from enum import Enum
-from typing import List
-
 from pydantic.main import BaseModel
 
 from storage.storage.engine_adaptor import find_template
+from storage.storage.storage_interface import Pageable, DataPage
 
-template = find_template()
 
+class StorageTemplate(object):
 
-class OrderType(Enum):
-    """Ascending sort order."""
-    ASCENDING = 1
-    """Descending sort order."""
-    DESCENDING = -1
+    def __init__(self, table_definition):
+        self.template = find_template(table_definition)
 
+    def insert_one(self, one: any, model: BaseModel, name: str) -> BaseModel:
+        return self.template.insert_one(one, model, name)
 
-'''
-class SqlOperator(Enum):
-    AND = "and"
-    OR = "or"
-'''
+    def insert_all(self, data: list, model: BaseModel, name: str):
+        return self.template.insert_all(data, model, name)
 
+    def update_one(self, one: any, model: BaseModel, name: str) -> any:
+        return self.template.update_one(one, model, name)
 
-class Pageable(BaseModel):
-    pageSize: int = None
-    pageNumber: int = None
+    def update_one_first(self, where: dict, updates: dict, model: BaseModel, name: str) -> BaseModel:
+        return self.template.update_one_first(where, updates, model, name)
 
+    def update_(self, where: dict, updates: dict, model: BaseModel, name: str):
+        self.template.update_(where, updates, model, name)
 
-class DataPage(BaseModel):
-    data: List = []
-    itemCount: int = None
-    pageNumber: int = None
-    pageSize: int = None
-    pageCount: int = None
+    def pull_update(self, where: dict, updates: dict, model: BaseModel, name: str):
+        self.template.pull_update(where, updates, model, name)
 
+    def delete_by_id(self, id_: str, name: str):
+        self.template.delete_by_id(id_, name)
 
-def insert_one(one: any, model: BaseModel, name: str) -> BaseModel:
-    return template.insert_one(one, model, name)
+    def delete_one(self, where: dict, name: str):
+        self.template.delete_one(where, name)
 
+    def delete_(self, where: dict, model: BaseModel, name: str):
+        self.template.delete_(where, model, name)
 
-def insert_all(data: list, model: BaseModel, name: str):
-    return template.insert_all(data, model, name)
+    def delete_all(self, model: BaseModel, name: str) -> list:
+        raise NotImplementedError("delete_all not implemented")
 
+    def drop_(self, name: str):
+        self.template.drop_(name)
 
-def update_one(one: any, model: BaseModel, name: str) -> any:
-    return template.update_one(one, model, name)
+    def find_by_id(self, id_: str, model: BaseModel, name: str) -> BaseModel:
+        return self.template.find_by_id(id_, model, name)
 
+    def find_one(self, where: dict, model: BaseModel, name: str) -> BaseModel:
+        return self.template.find_one(where, model, name)
 
-def update_one_first(where: dict, updates: dict, model: BaseModel, name: str) -> BaseModel:
-    return template.update_one_first(where, updates, model, name)
+    def find_(self, where: dict, model: BaseModel, name: str) -> list:
+        return self.template.find_(where, model, name)
 
+    def list_all(self, model: BaseModel, name: str) -> list:
+        return self.template.list_all(model, name)
 
-def upsert_(where: dict, updates: dict, model: BaseModel, name: str) -> BaseModel:
-    return template.upsert(where, updates, model, name)
+    def list_all_select(self, select: dict, model: BaseModel, name: str) -> list:
+        pass  # need to do
 
+    def list_(self, where: dict, model: BaseModel, name: str) -> list:
+        return self.template.list_(where, model, name)
 
-def update_(where: dict, updates: dict, model: BaseModel, name: str):
-    template.update_(where, updates, model, name)
+    def list_select(self, select: dict, where: dict, model: BaseModel, name: str) -> list:
+        pass  # need to do
 
+    def page_all(self, sort: list, pageable: Pageable, model: BaseModel, name: str) -> DataPage:
+        return self.template.page_all(sort, pageable, model, name)
 
-def pull_update(where: dict, updates: dict, model: BaseModel, name: str):
-    template.pull_update(where, updates, model, name)
+    def page_(self, where: dict, sort: list, pageable: Pageable, model: BaseModel, name: str) -> DataPage:
+        return self.template.page_(where, sort, pageable, model, name)
 
+    def get_topic_factors(self, topic_name):
+        return self.template.get_topic_factors(topic_name)
 
-def delete_by_id(id_: str, name: str):
-    template.delete_by_id(id_, name)
+    def check_topic_type(self, topic_name):
+        return self.template.check_topic_type(topic_name)
 
+    def get_table_column_default_value(self, table_name, column_name):
+        return self.template.get_table_column_default_value(table_name, column_name)
 
-def delete_one(where: dict, name: str):
-    template.delete_one(where, name)
-
-
-def delete_(where: dict, model: BaseModel, name: str):
-    template.delete_(where, model, name)
-
-
-def delete_all(model: BaseModel, name: str) -> list:
-    raise NotImplementedError("delete_all not implemented")
-
-
-def drop_(name: str):
-    template.drop_(name)
-
-
-def find_by_id(id_: str, model: BaseModel, name: str) -> BaseModel:
-    return template.find_by_id(id_, model, name)
-
-
-def find_one(where: dict, model: BaseModel, name: str) -> BaseModel:
-    return template.find_one(where, model, name)
-
-
-def find_(where: dict, model: BaseModel, name: str) -> list:
-    return template.find_(where, model, name)
-
-
-def exists(where: dict, model: BaseModel, name: str):
-    return template.exists(where, model, name)
-
-
-def list_all(model: BaseModel, name: str) -> list:
-    return template.list_all(model, name)
-
-
-def list_all_select(select: dict, model: BaseModel, name: str) -> list:
-    pass  # need to do
-
-
-def list_(where: dict, model: BaseModel, name: str) -> list:
-    return template.list_(where, model, name)
-
-
-def list_select(select: dict, where: dict, model: BaseModel, name: str) -> list:
-    pass  # need to do
-
-
-def page_all(sort: list, pageable: Pageable, model: BaseModel, name: str) -> DataPage:
-    return template.page_all(sort, pageable, model, name)
-
-
-def page_(where: dict, sort: list, pageable: Pageable, model: BaseModel, name: str) -> DataPage:
-    return template.page_(where, sort, pageable, model, name)
-
-
-def find_one_and_update(where: dict, updates: dict, name: str) -> any:
-    return template.find_one_and_update(where, updates, name)
-
-
-'''
-for topic data storage interface
-'''
-
-
-def create_topic_data_table(topic):
-    template.create_topic_data_table(topic)
-
-
-def create_topic_data_table_index(name: str, index_name: list, index_type: str):
-    pass
-
-
-def alter_topic_data_table(topic):
-    template.alter_topic_data_table(topic)
-
-
-def topic_data_delete_(where, name):
-    template.topic_data_delete_(where, name)
-
-
-def drop_topic_data_table(name):
-    template.drop_topic_data_table(name)
-
-
-def topic_data_insert_one(one: any, topic_name: str) -> tuple:
-    return template.topic_data_insert_one(one, topic_name)
-
-
-def topic_data_insert_(data: list, topic_name: str):
-    template.topic_data_insert_(data, topic_name)
-
-
-def topic_data_update_one(id_: str, one: any, topic_name: str):
-    template.topic_data_update_one(id_, one, topic_name)
-
-
-def topic_data_update_(where: dict, updates: dict, name: str):
-    template.topic_data_update_(where, updates, name)
-
-
-def topic_data_find_by_id(id_: str, topic_name: str) -> any:
-    return template.topic_data_find_by_id(id_, topic_name)
-
-
-def topic_data_find_one(where: dict, topic_name: str) -> any:
-    return template.topic_data_find_one(where, topic_name)
-
-
-def topic_data_find_(where, topic_name):
-    return template.topic_data_find_(where, topic_name)
-
-
-def topic_data_list_all(topic_name) -> list:
-    return template.topic_data_list_all(topic_name)
-
-
-def topic_data_page_(where: dict, sort: list, pageable: Pageable, model: BaseModel, name: str) -> DataPage:
-    return template.topic_data_page_(where, sort, pageable, model, name)
-
-
-def topic_find_one_and_update(where: dict, updates: dict, name: str) -> any:
-    return template.topic_find_one_and_update(where, updates, name)
-
-
-'''
-special for raw_pipeline_monitor, need refactor for raw topic schema structure, ToDo
-'''
-
-
-def create_raw_pipeline_monitor():
-    template.create_raw_pipeline_monitor()
-
-
-def clear_metadata():
-    template.clear_metadata()
+    def clear_metadata(self):
+        self.template.clear_metadata()

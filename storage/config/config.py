@@ -1,47 +1,72 @@
-import secrets
 from typing import List, Dict, Any, Optional
 
 from pydantic import AnyHttpUrl, BaseSettings, validator
 
+DEV = "dev"
+PROD = "production"
+
 
 class Settings(BaseSettings):
     API_V1_STR: str = ""
-    SECRET_KEY: str = secrets.token_urlsafe(32)
+    # SECRET_KEY: str = secrets.token_urlsafe(32)
+    SECRET_KEY: str = '801GtEAdlE8o-iZRLBMgz30PGE_zxry82EaUYMAhNq8'
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 8
     BACKEND_CORS_ORIGINS: List[AnyHttpUrl] = []
-    HOST_URL = "http://localhost:8000"
+
+    DASK_ON: bool = False
+    DASK_PROCESSES: bool = False
+
+    ENVIRONMENT: str = DEV
+
     ALGORITHM = "HS256"
     STORAGE_ENGINE = "mongo"
     PROJECT_NAME: str
-    MONGO_SCHEMA = "watchmen"
     MONGO_HOST: str = None
     MONGO_PORT: int = None
+    MONGO_DATABASE: str = "watchmen"
     MONGO_USERNAME: str = None
     MONGO_PASSWORD: str = None
-    PRESTO_HTTP_URL = "http://localhost:8080"
     PRESTO_HOST: str = None
     PRESTO_PORT: int = None
     PRESTO_USER = "the_user"
     PRESTO_CATALOG = "mongo"
     PRESTO_SCHEMA = "watchmen"
+    PRESTO_ON = True
+    PRESTO_LIB = "trino"
+
+    DEFAULT_DATA_ZONE_ON = False
 
     MYSQL_HOST: str = ""
     MYSQL_PORT: int = 3306
     MYSQL_USER: str = ""
     MYSQL_PASSWORD: str = ""
-    MYSQL_DATABASE: str = 'watchmen'
+    MYSQL_DATABASE: str = "watchmen"
     MYSQL_POOL_MAXCONNECTIONS: int = 6
     MYSQL_POOL_MINCACHED = 2
     MYSQL_POOL_MAXCACHED = 5
+    MYSQL_ECHO = False
 
     ORACLE_LIB_DIR: str = ""
     ORACLE_HOST: str = ""
     ORACLE_PORT: int = 1521
     ORACLE_USER: str = ""
     ORACLE_PASSWORD: str = ""
-    ORACLE_SERVICE: str = "XE"
+    ORACLE_SERVICE: str = ""
+    ORACLE_SID: str = ""
+    ORACLE_NAME: str = ""
 
     CONNECTOR_KAFKA = False
+    CONNECTOR_RABBITMQ = False
+
+    RABBITMQ_HOST: str = ""
+    RABBITMQ_PORT: str = "5672"
+    RABBITMQ_USERNAME: str = ""
+    RABBITMQ_PASSWORD: str = ""
+    RABBITMQ_VIRTUALHOST: str = ""
+    RABBITMQ_QUEUE: str = ""
+    RABBITMQ_DURABLE: bool = True
+    RABBITMQ_AUTO_DELETE: bool = False
+
     KAFKA_BOOTSTRAP_SERVER = "localhost:9092"
     KAFKA_TOPICS = ""
 
@@ -58,8 +83,25 @@ class Settings(BaseSettings):
     TOPIC_DATE_FORMAT = "%Y-%m-%d %H:%M:%S.%f"
     DECIMAL = "decimal(32,2)"
 
+    MOCK_USER = "demo_user"
+    SNOWFLAKE_DATACENTER = 0
+    SNOWFLAKE_WORKER = 0
+
+    MULTIPLE_DATA_SOURCE = False
+    EXTERNAL_WRITER_ON = True
+
+    PROMETHEUS_ON = False
+
+    PIPELINE_MONITOR_ON = True
+
+    QUERY_MONITOR_ON = False
+
+    KEY_MANAGEMENT_TYPE: str = "db"  ## 'aws-kms' 'azure-kms' , 'aliyun-kms'
+
+    DATA_SECURITY_ON = False
+
     @validator("STORAGE_ENGINE", pre=True)
-    def get_emails_enabled(cls, v: str, values: Dict[str, Any]) -> bool:
+    def check_storage_configuration(cls, v: str, values: Dict[str, Any]) -> bool:
         # print(v)
         if v and v == "mongo":
             result = bool(

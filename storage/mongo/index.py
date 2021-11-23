@@ -3,16 +3,6 @@ from decimal import Decimal
 from bson import Decimal128
 from bson.codec_options import TypeCodec, TypeRegistry, CodecOptions
 
-import storage
-
-
-def delete_topic_collection(collection_name):
-    '''
-    topic_name = build_collection_name(collection_name)
-    client.get_collection(topic_name).drop()
-    '''
-    storage.storage.storage_template.topic_data_delete_(None, collection_name)
-
 
 class DecimalCodec(TypeCodec):
     python_type = Decimal  # the Python type acted upon by this type codec
