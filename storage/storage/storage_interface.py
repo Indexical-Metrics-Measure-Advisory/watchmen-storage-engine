@@ -73,6 +73,10 @@ class StorageInterface(abc.ABC):
         pass
 
     @abc.abstractmethod
+    def find_distinct(self, where: dict, model, name: str, column: str) -> list:
+        pass
+
+    @abc.abstractmethod
     def find_one(self, where: dict, model: BaseModel, name: str) -> BaseModel:
         pass
 

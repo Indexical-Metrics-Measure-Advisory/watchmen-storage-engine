@@ -48,6 +48,9 @@ class StorageTemplate(object):
     def find_one(self, where: dict, model: BaseModel, name: str) -> BaseModel:
         return self.template.find_one(where, model, name)
 
+    def find_distinct(self, where: dict, model, name: str, column: str) -> list:
+        return self.template.find_distinct(where, model, name, column)
+
     def find_(self, where: dict, model: BaseModel, name: str) -> list:
         return self.template.find_(where, model, name)
 

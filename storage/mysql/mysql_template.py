@@ -4,7 +4,7 @@ import operator
 from operator import eq
 
 from sqlalchemy import insert, update, and_, or_, delete, desc, asc, \
-    text, JSON, inspect
+    text, JSON, inspect,distinct
 from sqlalchemy.future import select
 from sqlalchemy.orm import Session
 
@@ -248,6 +248,20 @@ class MysqlStorage(StorageInterface):
         with self.engine.connect() as conn:
             with conn.begin():
                 conn.execute(stmt)
+
+    def find_distinct(self, where: dict, model, name: str, column: str) -> list:
+        table = self.table.get_table_by_name(name)
+        stmt = select(distinct(table.c[column]))
+        where_expression = self.build_mysql_where_expression(table, where)
+        if where_expression is not None:
+            stmt = stmt.where(where_expression)
+
+        results = []
+        with self.engine.connect() as conn:
+            for result in list(conn.execute(stmt).fetchall()):
+                if result[0]:
+                    results.append(result[0])
+            return results
 
     def find_by_id(self, id_, model, name):
         table = self.table.get_table_by_name(name)
