@@ -5,7 +5,7 @@ import operator
 from operator import eq
 
 from sqlalchemy import insert, update, and_, or_, delete, CLOB, desc, asc, \
-    text, func, inspect
+    text, func, inspect, distinct
 from sqlalchemy.future import select
 from sqlalchemy.orm import Session
 
@@ -15,7 +15,6 @@ from storage.common.utils.storage_utils import build_data_pages, convert_to_dict
 from storage.oracle.oracle_engine import dumps
 from storage.oracle.oracle_utils import parse_obj
 from storage.storage.storage_interface import StorageInterface
-
 
 log = logging.getLogger("app." + __name__)
 
@@ -150,7 +149,7 @@ class OracleStorage(StorageInterface):
         table = self.table.get_table_by_name(name)
         stmt = update(table)
         one_dict: dict = convert_to_dict(one)
-        primary_key =  self.table.get_primary_key(name)
+        primary_key = self.table.get_primary_key(name)
         stmt = stmt.where(
             eq(table.c[primary_key.lower()], one_dict.get(primary_key)))
         values = {}
@@ -196,7 +195,7 @@ class OracleStorage(StorageInterface):
         instance_dict: dict = convert_to_dict(updates)
         values = {}
         for key, value in instance_dict.items():
-            if key !=  self.table.get_primary_key(name):
+            if key != self.table.get_primary_key(name):
                 values[key] = value
         stmt = stmt.values(values)
         session = Session(self.engine, future=True)
@@ -245,7 +244,7 @@ class OracleStorage(StorageInterface):
 
     def find_by_id(self, id_, model, name):
         table = self.table.get_table_by_name(name)
-        primary_key =  self.table.get_primary_key(name)
+        primary_key = self.table.get_primary_key(name)
         stmt = select(table).where(eq(table.c[primary_key.lower()], id_))
         with self.engine.connect() as conn:
             cursor = conn.execute(stmt).cursor
@@ -270,6 +269,20 @@ class OracleStorage(StorageInterface):
             return
         else:
             return parse_obj(model, result, table)
+
+    def find_distinct(self, where: dict, model, name: str, column: str) -> list:
+        table = self.table.get_table_by_name(name)
+        stmt = select(distinct(table.c[column]))
+        where_expression = self.build_oracle_where_expression(table, where)
+        if where_expression is not None:
+            stmt = stmt.where(where_expression)
+
+        results = []
+        with self.engine.connect() as conn:
+            for result in list(conn.execute(stmt).fetchall()):
+                if result[0]:
+                    results.append(result[0])
+            return results
 
     def find_(self, where: dict, model, name: str) -> list:
         table = self.table.get_table_by_name(name)
