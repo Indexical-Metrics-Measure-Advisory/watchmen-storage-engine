@@ -10,6 +10,8 @@ from sqlalchemy.future import select
 from sqlalchemy.orm import Session
 
 from watchmen.boot.cache.cache_manage import cacheman, COLUMNS_BY_TABLE_NAME, TOPIC_DICT_BY_NAME
+from watchmen.boot.storage.oracle.oracle_utils import parse_obj
+
 from storage.common.data_page import DataPage
 from storage.common.utils.storage_utils import build_data_pages, convert_to_dict
 from watchmen.boot.storage.utility.date_utils import dumps
@@ -253,7 +255,7 @@ class OracleStorage(StorageInterface):
         if result is None:
             return
         else:
-            return self.engine.parse_obj(model, result, table)
+            return parse_obj(model, result, table)
 
     def find_one(self, where, model, name):
         table = self.table.get_table_by_name(name)
@@ -267,7 +269,7 @@ class OracleStorage(StorageInterface):
         if result is None:
             return
         else:
-            return self.engine.parse_obj(model, result, table)
+            return parse_obj(model, result, table)
 
     def find_distinct(self, where: dict, model, name: str, column: str) -> list:
         table = self.table.get_table_by_name(name)
@@ -295,7 +297,7 @@ class OracleStorage(StorageInterface):
             cursor.rowfactory = lambda *args: dict(zip(columns, args))
             result = cursor.fetchall()
         if result is not None:
-            return [self.engine.parse_obj(model, row, table) for row in result]
+            return [parse_obj(model, row, table) for row in result]
         else:
             return None
 
@@ -309,7 +311,7 @@ class OracleStorage(StorageInterface):
             res = cursor.fetchall()
         result = []
         for row in res:
-            result.append(self.engine.parse_obj(model, row, table))
+            result.append(parse_obj(model, row, table))
         return result
 
     def list_(self, where, model, name) -> list:
@@ -322,7 +324,7 @@ class OracleStorage(StorageInterface):
             res = cursor.fetchall()
         result = []
         for row in res:
-            result.append(self.engine.parse_obj(model, row, table))
+            result.append(parse_obj(model, row, table))
         return result
 
     def page_all(self, sort, pageable, model, name) -> DataPage:
@@ -343,7 +345,7 @@ class OracleStorage(StorageInterface):
             cursor.rowfactory = lambda *args: dict(zip(columns, args))
             res = cursor.fetchall()
         for row in res:
-            result.append(self.engine.parse_obj(model, row, table))
+            result.append(parse_obj(model, row, table))
         return build_data_pages(pageable, result, count)
 
     def page_(self, where, sort, pageable, model, name) -> DataPage:
@@ -364,7 +366,7 @@ class OracleStorage(StorageInterface):
             cursor.rowfactory = lambda *args: dict(zip(columns, args))
             res = cursor.fetchall()
         for row in res:
-            result.append(self.engine.parse_obj(model, row, table))
+            result.append(parse_obj(model, row, table))
         return build_data_pages(pageable, result, count)
 
     def clear_metadata(self):

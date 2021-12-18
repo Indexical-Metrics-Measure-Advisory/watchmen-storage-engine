@@ -8,6 +8,7 @@ from sqlalchemy import insert, update, and_, or_, delete, desc, asc, \
 from sqlalchemy.future import select
 from sqlalchemy.orm import Session
 from watchmen.boot.cache.cache_manage import cacheman, TOPIC_DICT_BY_NAME
+from watchmen.boot.storage.mysql.mysql_utils import parse_obj
 
 from storage.common.data_page import DataPage
 from storage.common.utils.storage_utils import build_data_pages
@@ -276,7 +277,7 @@ class MysqlStorage(StorageInterface):
                 result = {}
                 for index, name in enumerate(columns):
                     result[name] = row[index]
-                return self.engine.parse_obj(model, result, table)
+                return parse_obj(model, result, table)
 
     def find_one(self, where, model, name):
         table = self.table.get_table_by_name(name)
@@ -292,7 +293,7 @@ class MysqlStorage(StorageInterface):
             else:
                 for index, name in enumerate(columns):
                     result[name] = row[index]
-                return self.engine.parse_obj(model, result, table)
+                return parse_obj(model, result, table)
 
     def find_(self, where: dict, model, name: str) -> list:
         table = self.table.get_table_by_name(name)
@@ -313,7 +314,7 @@ class MysqlStorage(StorageInterface):
                     for index, name in enumerate(columns):
                         result[name] = record[index]
                     results.append(result)
-                return [self.engine.parse_obj(model, row, table) for row in results]
+                return [parse_obj(model, row, table) for row in results]
 
     def list_all(self, model, name):
         table = self.table.get_table_by_name(name)
@@ -327,7 +328,7 @@ class MysqlStorage(StorageInterface):
             result = {}
             for index, name in enumerate(columns):
                 result[name] = row[index]
-            results.append(self.engine.parse_obj(model, result, table))
+            results.append(parse_obj(model, result, table))
         return results
 
     def list_(self, where, model, name) -> list:
@@ -342,7 +343,7 @@ class MysqlStorage(StorageInterface):
             result = {}
             for index, name in enumerate(columns):
                 result[name] = row[index]
-            results.append(self.engine.parse_obj(model, result, table))
+            results.append(parse_obj(model, result, table))
         return results
 
     def page_all(self, sort, pageable, model, name) -> DataPage:
@@ -363,7 +364,7 @@ class MysqlStorage(StorageInterface):
             result = {}
             for index, name in enumerate(columns):
                 result[name] = row[index]
-            results.append(self.engine.parse_obj(model, result, table))
+            results.append(parse_obj(model, result, table))
         return build_data_pages(pageable, results, count)
 
     def page_(self, where, sort, pageable, model, name) -> DataPage:
@@ -384,7 +385,7 @@ class MysqlStorage(StorageInterface):
             result = {}
             for index, name in enumerate(columns):
                 result[name] = row[index]
-            results.append(self.engine.parse_obj(model, result, table))
+            results.append(parse_obj(model, result, table))
         return build_data_pages(pageable, results, count)
 
     def clear_metadata(self):
