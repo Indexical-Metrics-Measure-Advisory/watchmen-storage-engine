@@ -3,10 +3,10 @@ import logging
 import pymongo
 from bson import regex
 
-from storage.common.cache.cache_manage import cacheman, TOPIC_DICT_BY_NAME
+from watchmen.boot.cache.cache_manage import cacheman, TOPIC_DICT_BY_NAME
 from storage.common.data_page import DataPage
 from storage.common.utils.storage_utils import build_data_pages
-from storage.mongo.index import build_code_options
+from watchmen.boot.storage.mongo.index import build_code_options
 from storage.storage.storage_interface import StorageInterface
 
 log = logging.getLogger("app." + __name__)

@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "watchmen-storage-engine"
-version = "0.1.19"
+version = "15.1.9"
 description = ""
 authors = ["luke0623 <luke0623@outlook.com>"]
 
@@ -12,12 +12,9 @@ packages = [
 [tool.poetry.dependencies]
 python = "^3.9"
 pydantic = "^1.8.2"
-pymongo = "^3.11.4"
-cx-Oracle = "^8.2.1"
 arrow = "^1.1.0"
-cacheout = "^0.13.1"
-mysqlclient = "^2.1.0"
 SQLAlchemy = "^1.4.27"
+watchmen-boot = "^15.1.1"
 
 [tool.poetry.dev-dependencies]
 

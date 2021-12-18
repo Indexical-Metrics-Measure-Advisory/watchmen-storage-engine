@@ -13,7 +13,6 @@ def build_data_pages(pagination, result, item_count):
     return data_page
 
 
-
 def convert_to_dict(instance):
     if type(instance) is not dict:
         return instance.dict(by_alias=True)
