@@ -7,8 +7,8 @@ from sqlalchemy import insert, update, and_, or_, delete, desc, asc, \
     text, JSON, inspect,distinct
 from sqlalchemy.future import select
 from sqlalchemy.orm import Session
-from watchmen.boot.cache.cache_manage import cacheman, TOPIC_DICT_BY_NAME
-from watchmen.boot.storage.mysql.mysql_utils import parse_obj
+from watchmen_boot.cache.cache_manage import cacheman, TOPIC_DICT_BY_NAME
+from watchmen_boot.storage.mysql.mysql_utils import parse_obj
 
 from storage.common.data_page import DataPage
 from storage.common.utils.storage_utils import build_data_pages

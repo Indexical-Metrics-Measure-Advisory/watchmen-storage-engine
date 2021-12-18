@@ -1,5 +1,5 @@
-from watchmen.boot.config.config import settings
-from watchmen.boot.storage.model.data_source import DataSource, DataSourceParam
+from watchmen_boot.config.config import settings
+from watchmen_boot.storage.model.data_source import DataSource, DataSourceParam
 
 MYSQL = "mysql"
 MONGO = "mongo"
