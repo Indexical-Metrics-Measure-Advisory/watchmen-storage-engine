@@ -14,7 +14,7 @@ python = "^3.9"
 pydantic = "^1.8.2"
 arrow = "^1.1.0"
 SQLAlchemy = "^1.4.27"
-watchmen-boot = "^15.1.11"
+watchmen-boot = "^15.1.13"
 
 [tool.poetry.dev-dependencies]
 
