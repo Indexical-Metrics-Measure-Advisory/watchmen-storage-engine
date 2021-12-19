@@ -27,7 +27,7 @@ jobs:
         python -m pip install --upgrade pip
         pip install poetry
     - name: install package
-      run: poetry install
+      run: poetry install | pip install watchmen-boot
     - name: Build package
       run: poetry build
     - name: Publish package
